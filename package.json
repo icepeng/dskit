@@ -1,0 +1,14 @@
+{
+  "name": "dskit",
+  "private": true,
+  "workspaces": [
+    "./packages/*",
+    "./packages/integration/*",
+    "dashboard"
+  ],
+  "packageManager": "yarn@3.4.1",
+  "devDependencies": {
+    "rome": "^11.0.0",
+    "typescript": "^4.9.5"
+  }
+}
