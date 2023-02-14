@@ -5,6 +5,10 @@ import { parseScaleToken, parseSemanticToken } from "./parser";
 const { DataFactory } = N3;
 const { namedNode, literal, defaultGraph, quad, blankNode } = DataFactory;
 
+function definitionToQuads() {}
+
+function quadsToDefinition() {}
+
 export function createStore() {
   const store = new N3.Store();
 
@@ -24,9 +28,6 @@ export function createStore() {
     );
     store.addQuad(
       quad(namedNode(graph), namedNode("condition"), namedNode(condition)),
-    );
-    store.addQuad(
-      quad(namedNode(graph), namedNode("prefix"), namedNode("scale")),
     );
   }
 
@@ -50,9 +51,6 @@ export function createStore() {
     );
     store.addQuad(
       quad(namedNode(graph), namedNode("property"), namedNode(property)),
-    );
-    store.addQuad(
-      quad(namedNode(graph), namedNode("prefix"), namedNode("semantic")),
     );
   }
 

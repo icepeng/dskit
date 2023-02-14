@@ -1,19 +1,41 @@
-import { ScaleToken, SemanticToken, Token, TokenDefinition } from "./data";
+import type {
+  ScaleToken,
+  SemanticToken,
+  ScaleTokenDefinition,
+  TokenDefinition,
+  Target,
+} from "./data";
 
 /**
  * $prefix.target.name
  */
 export function parseScaleToken(str: string): ScaleToken {
-  const [prefix, target, name] = str.split(".");
-  return { prefix, target, name } as ScaleToken;
+  const [_, target, name] = str.split(".");
+  return {
+    dataType: "ScaleToken",
+    prefix: "$scale",
+    target: target as Target,
+    name,
+  };
 }
 
 /**
  * $prefix.group.name
  */
 export function parseSemanticToken(str: string): SemanticToken {
-  const [prefix, group, name] = str.split(".");
-  return { prefix, group, name } as SemanticToken;
+  const [_, group, name] = str.split(".");
+  return { dataType: "SemanticToken", prefix: "$semantic", group, name };
+}
+
+export function parseScaleTokenDefinition(str: string): ScaleTokenDefinition {
+  const regex = /(?<token>.+?)\s*>\s*(?<binding>.+) \((?<condition>.+)\)/;
+  const match = str.match(regex)!;
+  const { token, binding, condition } = match.groups!;
+  return {
+    token: parseScaleToken(token),
+    binding,
+    condition,
+  };
 }
 
 /**
