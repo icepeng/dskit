@@ -1,57 +1,93 @@
+import { isScaleTokenDefinition, isSemanticTokenDefinition } from "./guard";
+import {
+  Definition,
+  ScaleTokenDefinition,
+  SemanticTokenDefinition,
+} from "./interface";
+import {
+  stringifyCommand,
+  stringifyScaleToken,
+  stringifyScaleTokenBinding,
+  stringifyToken,
+} from "./stringify";
 import * as N3 from "n3";
-import { ScaleTokenDefinition, SemanticTokenDefinition } from "./data";
-import { parseScaleToken, parseSemanticToken } from "./parser";
+import { parseCommand } from "./parser";
 
 const { DataFactory } = N3;
-const { namedNode, literal, defaultGraph, quad, blankNode } = DataFactory;
+const { namedNode, quad } = DataFactory;
 
-function definitionToQuads() {}
+function scaleTokenDefinitionToQuads(def: ScaleTokenDefinition): N3.Quad[] {
+  const { token, binding, condition } = def;
+  const graph = stringifyCommand(def);
+  return [
+    quad(
+      namedNode(stringifyToken(token)),
+      namedNode("is"),
+      namedNode(stringifyScaleTokenBinding(binding)),
+      namedNode(graph),
+    ),
+    quad(namedNode(graph), namedNode("condition"), namedNode(condition ?? "*")),
+  ];
+}
 
-function quadsToDefinition() {}
+function semanticTokenDefinitionToQuads(
+  def: SemanticTokenDefinition,
+): N3.Quad[] {
+  const { token, binding, condition, property } = def;
+  const graph = stringifyCommand(def);
+
+  if (property != null) {
+    return [
+      quad(
+        namedNode(stringifyToken(token)),
+        namedNode("has"),
+        namedNode(stringifyScaleToken(binding)),
+        namedNode(graph),
+      ),
+      quad(
+        namedNode(graph),
+        namedNode("condition"),
+        namedNode(condition ?? "*"),
+      ),
+      quad(namedNode(graph), namedNode("property"), namedNode(property)),
+    ];
+  }
+
+  return [
+    quad(
+      namedNode(stringifyToken(token)),
+      namedNode("is"),
+      namedNode(stringifyScaleToken(binding)),
+      namedNode(graph),
+    ),
+    quad(namedNode(graph), namedNode("condition"), namedNode(condition ?? "*")),
+  ];
+}
+
+let listeners: Array<() => void> = [];
 
 export function createStore() {
   const store = new N3.Store();
 
-  function addScaleDefinition(
-    tokenStr: string,
-    binding: string,
-    condition: string,
-  ) {
-    const graph = `${tokenStr}::${binding}::${condition}`;
-    store.addQuad(
-      quad(
-        namedNode(tokenStr),
-        namedNode("is"),
-        namedNode(binding),
-        namedNode(graph),
-      ),
-    );
-    store.addQuad(
-      quad(namedNode(graph), namedNode("condition"), namedNode(condition)),
-    );
-  }
+  let snapshot = {
+    getConditions,
+    getTokens,
+    getDefinitions,
+    getQuads,
+    evaluateToken,
+  };
 
-  function addSemanticDefinition(
-    tokenStr: string,
-    binding: string,
-    property: string,
-    condition: string,
-  ) {
-    const graph = `${tokenStr}::${binding}::${condition}::${property}`;
-    store.addQuad(
-      quad(
-        namedNode(tokenStr),
-        namedNode("is"),
-        namedNode(binding),
-        namedNode(graph),
-      ),
-    );
-    store.addQuad(
-      quad(namedNode(graph), namedNode("condition"), namedNode(condition)),
-    );
-    store.addQuad(
-      quad(namedNode(graph), namedNode("property"), namedNode(property)),
-    );
+  function addDefinition(def: Definition) {
+    if (isScaleTokenDefinition(def)) {
+      store.addQuads(scaleTokenDefinitionToQuads(def));
+    }
+
+    if (isSemanticTokenDefinition(def)) {
+      store.addQuads(semanticTokenDefinitionToQuads(def));
+    }
+
+    snapshot = { ...snapshot };
+    emitChange();
   }
 
   function getConditions(): string[] {
@@ -59,57 +95,28 @@ export function createStore() {
     return [...new Set(quads.map((quad) => quad.object.value))];
   }
 
-  function getScaleDefinitions(condition: string): ScaleTokenDefinition[] {
-    const quads = store
-      .getQuads(null, "is", null, null)
-      .filter(
-        (quad) =>
-          store.countQuads(quad.graph, "condition", condition, null) > 0 &&
-          store.countQuads(quad.graph, "prefix", "scale", null) > 0,
-      );
-
-    return quads.map(({ subject, object, graph }) => {
-      const token = parseScaleToken(subject.value);
-      const binding = object.value;
-      const condition = store.getObjects(graph, "condition", null)[0].value;
-
-      return {
-        token,
-        binding,
-        condition,
-      };
-    });
-  }
-
-  function getSemanticDefinitions(
-    condition: string,
-  ): SemanticTokenDefinition[] {
-    const quads = store
-      .getQuads(null, "is", null, null)
-      .filter(
-        (quad) =>
-          store.countQuads(quad.graph, "condition", condition, null) > 0 &&
-          store.countQuads(quad.graph, "prefix", "semantic", null) > 0,
-      );
-
-    return quads.map(({ subject, object, graph }) => {
-      const token = parseSemanticToken(subject.value);
-      const binding = object.value;
-      const property = store.getObjects(graph, "property", null)[0].value;
-      const condition = store.getObjects(graph, "condition", null)[0].value;
-
-      return {
-        token,
-        binding,
-        condition,
-        property,
-      };
-    });
-  }
-
   function getTokens() {
-    const tokens = store.getQuads(null, "is", null, null);
-    return [...new Set(tokens.map((token) => token.subject.value))];
+    const quads = store.getQuads(null, "is", null, null);
+    return [...new Set(quads.map((token) => token.subject.value))];
+  }
+
+  function getDefinitions() {
+    const quads = store.getQuads(null, "is", null, null);
+    return quads.map((quad) => parseCommand(quad.graph.value));
+  }
+
+  function getQuads(
+    subject?: string | null,
+    predicate?: string | null,
+    object?: string | null,
+    graph?: string | null,
+  ) {
+    return store.getQuads(
+      subject ?? null,
+      predicate ?? null,
+      object ?? null,
+      graph ?? null,
+    );
   }
 
   function evaluateToken(token: string, graph: string): string | undefined {
@@ -126,15 +133,28 @@ export function createStore() {
     return result;
   }
 
+  function subscribe(listener: () => void) {
+    listeners = [...listeners, listener];
+    return () => {
+      listeners = listeners.filter((l) => l !== listener);
+    };
+  }
+
+  function getSnapshot() {
+    return snapshot;
+  }
+
   return {
-    addScaleDefinition,
-    addSemanticDefinition,
-    getConditions,
-    getScaleDefinitions,
-    getSemanticDefinitions,
-    getTokens,
-    evaluateToken,
+    subscribe,
+    getSnapshot,
+    addDefinition,
   };
+}
+
+function emitChange() {
+  for (let listener of listeners) {
+    listener();
+  }
 }
 
 export type Store = ReturnType<typeof createStore>;

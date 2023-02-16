@@ -1,26 +1,71 @@
+import { createStore, parseDefinition } from "@dskit/core";
+import { useMemo, useState, useSyncExternalStore } from "react";
+
+const tokenStore = createStore();
+
+function useStore() {
+  return useSyncExternalStore(tokenStore.subscribe, tokenStore.getSnapshot);
+}
+
 function App() {
+  const store = useStore();
+  const [definition, setDefinition] = useState("");
+  const [filter, setFilter] = useState({
+    subject: "",
+    predicate: "",
+    object: "",
+  });
+  const quads = useMemo(
+    () =>
+      store.getQuads(
+        filter.subject || null,
+        filter.predicate || null,
+        filter.object || null,
+        null,
+      ),
+    [store, filter],
+  );
+
+  const handleAdd = () => {
+    const command = parseDefinition(definition);
+    tokenStore.addDefinition(command);
+  };
+
   return (
     <div className="flex flex-col">
       <div className="flex p-3">
         <input
           type="text"
-          placeholder="Type here"
-          className="input input-bordered w-full max-w-xs"
+          placeholder="Write down definition"
+          className="input input-bordered w-full"
+          value={definition}
+          onChange={(e) => setDefinition(e.target.value)}
+        />
+        <button onClick={handleAdd} className="btn">
+          Add
+        </button>
+      </div>
+      <div className="flex p-3">
+        <input
+          type="text"
+          placeholder="Subject"
+          className="input input-bordered w-full"
+          value={filter.subject}
+          onChange={(e) => setFilter({ ...filter, subject: e.target.value })}
         />
         <input
           type="text"
-          placeholder="Type here"
-          className="input input-bordered w-full max-w-xs"
+          placeholder="Predicate"
+          className="input input-bordered w-full"
+          value={filter.predicate}
+          onChange={(e) => setFilter({ ...filter, predicate: e.target.value })}
         />
         <input
           type="text"
-          placeholder="Type here"
-          className="input input-bordered w-full max-w-xs"
-        />
-        <input
-          type="text"
-          placeholder="Type here"
-          className="input input-bordered w-full max-w-xs"
+          placeholder="Object"
+          className="input input-bordered w-full"
+          value={filter.object}
+          onChange={(e) => setFilter({ ...filter, object: e.target.value })}
         />
       </div>
 
@@ -36,27 +81,16 @@ function App() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <th>1</th>
-              <td>Cy Ganderton</td>
-              <td>Quality Control Specialist</td>
-              <td>Littel, Schaden and Vandervort</td>
-              <td>Littel, Schaden and Vandervort</td>
-            </tr>
-            <tr>
-              <th>2</th>
-              <td>Hart Hagerty</td>
-              <td>Desktop Support Technician</td>
-              <td>Zemlak, Daniel and Leannon</td>
-              <td>Zemlak, Daniel and Leannon</td>
-            </tr>
-            <tr>
-              <th>3</th>
-              <td>Brice Swyre</td>
-              <td>Tax Accountant</td>
-              <td>Carroll Group</td>
-              <td>Carroll Group</td>
-            </tr>
+            {quads.map((quad, index) => (
+              // rome-ignore lint/suspicious/noArrayIndexKey: <explanation>
+              <tr key={index}>
+                <th>{index}</th>
+                <td>{quad.subject.value}</td>
+                <td>{quad.predicate.value}</td>
+                <td>{quad.object.value}</td>
+                <td>{quad.graph.value}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

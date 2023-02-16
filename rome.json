@@ -4,7 +4,12 @@
     "enabled": true,
     "rules": {
       "recommended": true
-    }
+    },
+    "ignore": [
+      "**/node_modules/**",
+      "**/lib/**",
+      "**/__generated__/**"
+    ]
   },
   "formatter": {
     "enabled": true,

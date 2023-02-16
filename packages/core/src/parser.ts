@@ -1,84 +1,60 @@
-import type {
+import { parse as _parse } from "./__generated__/parser";
+import {
+  AST,
+  Command,
+  Definition,
+  Macro,
   ScaleToken,
   SemanticToken,
-  ScaleTokenDefinition,
-  TokenDefinition,
-  Target,
-} from "./data";
+  Token,
+} from "./interface";
 
-/**
- * $prefix.target.name
- */
-export function parseScaleToken(str: string): ScaleToken {
-  const [_, target, name] = str.split(".");
-  return {
-    dataType: "ScaleToken",
-    prefix: "$scale",
-    target: target as Target,
-    name,
-  };
+interface Location {
+  line: number;
+  column: number;
+  offset: number;
 }
 
-/**
- * $prefix.group.name
- */
-export function parseSemanticToken(str: string): SemanticToken {
-  const [_, group, name] = str.split(".");
-  return { dataType: "SemanticToken", prefix: "$semantic", group, name };
+interface LocationRange {
+  start: Location;
+  end: Location;
 }
 
-export function parseScaleTokenDefinition(str: string): ScaleTokenDefinition {
-  const regex = /(?<token>.+?)\s*>\s*(?<binding>.+) \((?<condition>.+)\)/;
-  const match = str.match(regex)!;
-  const { token, binding, condition } = match.groups!;
-  return {
-    token: parseScaleToken(token),
-    binding,
-    condition,
-  };
+export interface SyntaxError {
+  line: number;
+  column: number;
+  offset: number;
+  location: LocationRange;
+  expected: unknown[];
+  found: unknown;
+  name: string;
+  message: string;
 }
 
-/**
- * token -> binding (condition)
- * token -[:property]> binding (condition)
- */
-export function parseLine(str: string): TokenDefinition {
-  const regex = /(?<token>.+?)\s*>\s*(?<binding>.+) \((?<condition>.+)\)/;
-  const propertyRegex =
-    /(?<token>.+?)\s*-\[:(?<property>.+?)\]>\s*(?<binding>.+) \((?<condition>.+)\)/;
+export function parseDocument(source: string): AST {
+  return _parse(source);
+}
 
-  const match = str.match(regex);
-  if (match) {
-    const { token, binding, condition } = match.groups!;
+export function parseCommand(source: string): Command {
+  return _parse(source, { startRule: "Command" });
+}
 
-    if (token.startsWith("$scale")) {
-      return {
-        token: parseScaleToken(token),
-        binding,
-        condition,
-      };
-    }
+export function parseDefinition(source: string): Definition {
+  return _parse(source, { startRule: "Definition" });
+}
 
-    if (token.startsWith("$semantic")) {
-      return {
-        token: parseSemanticToken(token),
-        property: "None",
-        binding,
-        condition,
-      };
-    }
-  }
+export function parseScaleToken(source: string): ScaleToken {
+  return _parse(source, { startRule: "ScaleToken" });
+}
 
-  const propertyMatch = str.match(propertyRegex);
-  if (propertyMatch) {
-    const { token, property, binding, condition } = propertyMatch.groups!;
-    return {
-      token: parseSemanticToken(token),
-      property,
-      binding,
-      condition,
-    };
-  }
+export function parseSemanticToken(source: string): SemanticToken {
+  return _parse(source, { startRule: "SemanticToken" });
+}
 
-  throw new Error(`Invalid line: ${str}`);
+export function parseToken(source: string): Token {
+  return _parse(source, { startRule: "Token" });
+}
+
+export function parseMacro(source: string): Macro {
+  return _parse(source, { startRule: "Macro" });
 }
